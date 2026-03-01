@@ -1,0 +1,732 @@
+[
+  {
+    "atom_id": "CS_EXP_001",
+    "name": "UX/Interaction Design",
+    "definition": "Designing user experiences and interaction patterns for digital products, including wireframing, user flows, and usability principles.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "UX design",
+      "interaction design",
+      "UXデザイン",
+      "インタラクションデザイン",
+      "user experience design",
+      "wireframing and prototyping"
+    ],
+    "negative_examples": [
+      "visual design (purely aesthetic)",
+      "graphic design",
+      "brand identity design"
+    ]
+  },
+  {
+    "atom_id": "CS_EXP_002",
+    "name": "Prototyping & Rapid Iteration",
+    "definition": "Building interactive prototypes to test concepts quickly, iterating based on feedback, and converging on validated designs.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "prototyping",
+      "rapid prototyping",
+      "プロトタイピング",
+      "interactive prototype creation",
+      "concept validation through prototypes"
+    ],
+    "negative_examples": [
+      "production code development",
+      "final implementation",
+      "pixel-perfect design"
+    ]
+  },
+  {
+    "atom_id": "CS_EXP_003",
+    "name": "User Research & Usability Testing",
+    "definition": "Planning and conducting user research, usability tests, and synthesizing findings into actionable design insights.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "user research",
+      "usability testing",
+      "ユーザーリサーチ",
+      "ユーザビリティテスト",
+      "user interviews",
+      "A/B testing"
+    ],
+    "negative_examples": [
+      "market research",
+      "competitive analysis",
+      "data analytics"
+    ]
+  },
+  {
+    "atom_id": "CS_EXP_004",
+    "name": "Experience Coherence & Concept-to-Spec",
+    "definition": "Translating abstract concepts into concrete specifications while maintaining holistic experience coherence across touchpoints.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "concept to specification",
+      "experience coherence",
+      "コンセプトから仕様への変換",
+      "design specification writing",
+      "end-to-end experience design"
+    ],
+    "negative_examples": [
+      "technical specification writing (pure engineering)",
+      "project management",
+      "product strategy"
+    ]
+  },
+  {
+    "atom_id": "CS_SYS_001",
+    "name": "Systems Architecture & Integration",
+    "definition": "Designing and implementing system architectures, including component integration, API design, and managing technical dependencies.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "systems architecture",
+      "system design",
+      "システム設計",
+      "API design and integration",
+      "microservices architecture",
+      "integration architecture"
+    ],
+    "negative_examples": [
+      "UI component design",
+      "database administration",
+      "network infrastructure"
+    ]
+  },
+  {
+    "atom_id": "CS_SYS_002",
+    "name": "Performance Profiling & Optimization",
+    "definition": "Identifying and resolving performance bottlenecks through profiling, benchmarking, and optimization techniques.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "performance optimization",
+      "profiling",
+      "パフォーマンス最適化",
+      "load testing",
+      "memory optimization",
+      "render performance"
+    ],
+    "negative_examples": [
+      "feature development",
+      "code review (general)",
+      "testing (functional)"
+    ]
+  },
+  {
+    "atom_id": "CS_SYS_003",
+    "name": "Debugging & Root Cause Analysis",
+    "definition": "Systematically diagnosing and resolving software issues through debugging techniques and root cause analysis.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "debugging",
+      "root cause analysis",
+      "デバッグ",
+      "troubleshooting",
+      "issue diagnosis"
+    ],
+    "negative_examples": [
+      "writing new features",
+      "code review",
+      "test writing"
+    ]
+  },
+  {
+    "atom_id": "CS_SYS_004",
+    "name": "Technical Constraints Management",
+    "definition": "Working effectively within platform, hardware, or framework constraints; making trade-off decisions under technical limitations.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "technical constraints",
+      "platform limitations",
+      "技術的制約の管理",
+      "trade-off analysis",
+      "resource-constrained development"
+    ],
+    "negative_examples": [
+      "budget management",
+      "timeline management",
+      "scope negotiation (non-technical)"
+    ]
+  },
+  {
+    "atom_id": "CS_RND_001",
+    "name": "PoC Evaluation & Kill/Merge Decisions",
+    "definition": "Evaluating proof-of-concept results and making data-driven decisions to kill, merge, or advance prototypes.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "PoC evaluation",
+      "prototype evaluation",
+      "プロトタイプ評価",
+      "go/no-go decisions",
+      "concept validation",
+      "kill criteria"
+    ],
+    "negative_examples": [
+      "A/B testing (user-facing)",
+      "product launch decisions",
+      "investment decisions"
+    ]
+  },
+  {
+    "atom_id": "CS_RND_002",
+    "name": "Fidelity Raising & Convergence",
+    "definition": "Progressively increasing the fidelity of prototypes from rough concepts to production-ready implementations.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "fidelity progression",
+      "concept to production",
+      "段階的な精度向上",
+      "prototype convergence",
+      "production readiness"
+    ],
+    "negative_examples": [
+      "maintenance of existing systems",
+      "refactoring",
+      "documentation"
+    ]
+  },
+  {
+    "atom_id": "CS_RND_003",
+    "name": "R&D Process & Methodology",
+    "definition": "Applying structured R&D methodologies including experiment design, hypothesis testing, and iterative research cycles.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "R&D methodology",
+      "research and development",
+      "研究開発プロセス",
+      "experiment design",
+      "iterative research"
+    ],
+    "negative_examples": [
+      "agile/scrum (standard development)",
+      "project management",
+      "academic research"
+    ]
+  },
+  {
+    "atom_id": "CS_ORG_001",
+    "name": "Cross-Functional Collaboration",
+    "definition": "Working effectively across disciplines (engineering, design, product, business) to align goals and deliver outcomes.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "cross-functional collaboration",
+      "cross-discipline work",
+      "横断的な協業",
+      "interdisciplinary teamwork",
+      "stakeholder alignment",
+      "cross-team coordination"
+    ],
+    "negative_examples": [
+      "solo work",
+      "single-team management",
+      "external partnerships"
+    ]
+  },
+  {
+    "atom_id": "CS_ORG_002",
+    "name": "Technical-to-Non-Technical Translation",
+    "definition": "Translating complex technical concepts into language and formats understandable by non-technical stakeholders.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "technical communication to stakeholders",
+      "translating technical concepts",
+      "技術的概念の非技術者への伝達",
+      "executive presentations on technical topics",
+      "bridging engineering and business"
+    ],
+    "negative_examples": [
+      "technical documentation (for engineers)",
+      "code comments",
+      "API documentation"
+    ]
+  },
+  {
+    "atom_id": "CS_ORG_003",
+    "name": "Internal/External Orchestration",
+    "definition": "Coordinating work streams across internal teams and external partners, vendors, or contractors.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "vendor management",
+      "partner coordination",
+      "外部パートナーとの連携",
+      "internal team orchestration",
+      "outsourcing coordination"
+    ],
+    "negative_examples": [
+      "individual contribution",
+      "self-directed work",
+      "peer collaboration"
+    ]
+  },
+  {
+    "atom_id": "CS_ORG_004",
+    "name": "Executive Documentation & Decision Support",
+    "definition": "Creating concise documentation for executive decision-making, including proposals, trade-off analyses, and strategic recommendations.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "executive presentations",
+      "decision documents",
+      "経営層向け資料作成",
+      "strategic proposals",
+      "trade-off documentation"
+    ],
+    "negative_examples": [
+      "user-facing documentation",
+      "API docs",
+      "meeting minutes"
+    ]
+  },
+  {
+    "atom_id": "CS_INT_001",
+    "name": "Spatial UI / XR Interfaces",
+    "definition": "Designing and developing interfaces for spatial computing, XR (AR/VR/MR), and 3D interaction paradigms.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "XR interface design",
+      "spatial UI",
+      "空間UI",
+      "AR/VR development",
+      "3D interaction design",
+      "mixed reality interfaces"
+    ],
+    "negative_examples": [
+      "traditional 2D web UI",
+      "mobile app UI",
+      "CLI design"
+    ]
+  },
+  {
+    "atom_id": "CS_INT_002",
+    "name": "Emerging Interaction Paradigms",
+    "definition": "Exploring and implementing novel interaction patterns beyond traditional GUI, including voice, gesture, haptics, and ambient computing.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "voice interfaces",
+      "gesture recognition",
+      "新しいインタラクションパラダイム",
+      "haptic feedback design",
+      "ambient computing"
+    ],
+    "negative_examples": [
+      "standard web forms",
+      "traditional CRUD interfaces",
+      "mouse and keyboard interaction"
+    ]
+  },
+  {
+    "atom_id": "CS_INT_003",
+    "name": "Game Engine & Real-Time 3D",
+    "definition": "Working with game engines (Unity, Unreal, Godot) and real-time 3D rendering for interactive experiences.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "Unity development",
+      "Unreal Engine",
+      "ゲームエンジン開発",
+      "real-time 3D rendering",
+      "interactive 3D experiences"
+    ],
+    "negative_examples": [
+      "pre-rendered 3D (film/animation)",
+      "CAD modeling",
+      "static 3D visualization"
+    ]
+  },
+  {
+    "atom_id": "CS_AI_001",
+    "name": "AI-Assisted Development & Tooling",
+    "definition": "Using AI tools (Copilot, ChatGPT, etc.) to accelerate development workflows, including code generation, review, and debugging.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "AI-assisted coding",
+      "Copilot usage",
+      "AI支援開発",
+      "LLM-powered development tools",
+      "AI-assisted design workflows"
+    ],
+    "negative_examples": [
+      "building AI/ML models",
+      "training neural networks",
+      "MLOps"
+    ]
+  },
+  {
+    "atom_id": "CS_AI_002",
+    "name": "AI/ML Evaluation & Critical Thinking",
+    "definition": "Critically evaluating AI/ML outputs, understanding model limitations, and making informed decisions about when to trust or override AI suggestions.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "AI output evaluation",
+      "ML model assessment",
+      "AI評価マインドセット",
+      "prompt engineering",
+      "AI limitation awareness"
+    ],
+    "negative_examples": [
+      "AI model training",
+      "dataset curation",
+      "ML infrastructure"
+    ]
+  },
+  {
+    "atom_id": "CS_AI_003",
+    "name": "LLM Integration & Prompt Design",
+    "definition": "Integrating large language models into products and workflows, including prompt engineering, RAG systems, and output validation.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "LLM integration",
+      "prompt engineering",
+      "LLM統合",
+      "RAG system design",
+      "AI feature development"
+    ],
+    "negative_examples": [
+      "model fine-tuning",
+      "model training from scratch",
+      "ML research"
+    ]
+  },
+  {
+    "atom_id": "CS_DEV_001",
+    "name": "Frontend Development",
+    "definition": "Building user-facing web or app interfaces using frontend frameworks and technologies.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "frontend development",
+      "React",
+      "フロントエンド開発",
+      "Vue.js",
+      "TypeScript",
+      "web development"
+    ],
+    "negative_examples": [
+      "backend API development",
+      "database design",
+      "DevOps"
+    ]
+  },
+  {
+    "atom_id": "CS_DEV_002",
+    "name": "Backend / API Development",
+    "definition": "Building server-side logic, APIs, and data processing pipelines.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "backend development",
+      "API development",
+      "バックエンド開発",
+      "server-side programming",
+      "REST/GraphQL APIs"
+    ],
+    "negative_examples": [
+      "frontend UI code",
+      "CSS/styling",
+      "client-side JavaScript"
+    ]
+  },
+  {
+    "atom_id": "CS_DEV_003",
+    "name": "Design Tools Proficiency",
+    "definition": "Expert use of design and prototyping tools such as Figma, Sketch, Adobe Creative Suite, or equivalent.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "Figma",
+      "Sketch",
+      "Figma習熟",
+      "Adobe XD",
+      "design tools proficiency",
+      "prototyping tools"
+    ],
+    "negative_examples": [
+      "code editors/IDEs",
+      "spreadsheet tools",
+      "project management tools"
+    ]
+  },
+  {
+    "atom_id": "CS_DEV_004",
+    "name": "Version Control & CI/CD",
+    "definition": "Using version control systems (Git) and continuous integration/deployment pipelines effectively.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "Git",
+      "CI/CD pipelines",
+      "バージョン管理",
+      "GitHub/GitLab workflows",
+      "deployment automation"
+    ],
+    "negative_examples": [
+      "manual file management",
+      "FTP deployment",
+      "document version tracking"
+    ]
+  },
+  {
+    "atom_id": "CS_DEV_005",
+    "name": "Python Development",
+    "definition": "Building applications, scripts, and tooling using Python and its ecosystem.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "Python programming",
+      "Python scripting",
+      "Python開発",
+      "Python data processing",
+      "Python CLI tools"
+    ],
+    "negative_examples": [
+      "JavaScript/TypeScript",
+      "C++/Rust systems programming",
+      "Java enterprise development"
+    ]
+  },
+  {
+    "atom_id": "CS_LDR_001",
+    "name": "Technical Leadership & Mentoring",
+    "definition": "Leading technical teams, mentoring junior developers, setting technical direction, and fostering engineering culture.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "tech lead",
+      "technical leadership",
+      "テクニカルリーダーシップ",
+      "mentoring engineers",
+      "setting technical direction"
+    ],
+    "negative_examples": [
+      "people management (HR)",
+      "project management",
+      "product management"
+    ]
+  },
+  {
+    "atom_id": "CS_LDR_002",
+    "name": "Team Building & Culture",
+    "definition": "Building high-performing teams, establishing engineering culture, and creating psychologically safe environments.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "team building",
+      "engineering culture",
+      "チームビルディング",
+      "hiring and onboarding",
+      "psychological safety"
+    ],
+    "negative_examples": [
+      "individual technical contribution",
+      "external community building",
+      "marketing"
+    ]
+  },
+  {
+    "atom_id": "CS_COM_001",
+    "name": "Written Communication & Documentation",
+    "definition": "Clear, effective written communication including technical writing, proposals, and documentation.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "technical writing",
+      "documentation",
+      "文書コミュニケーション",
+      "proposal writing",
+      "clear written communication"
+    ],
+    "negative_examples": [
+      "verbal presentation",
+      "coding",
+      "visual design"
+    ]
+  },
+  {
+    "atom_id": "CS_COM_002",
+    "name": "Presentation & Public Speaking",
+    "definition": "Delivering clear, engaging presentations to technical and non-technical audiences.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "presentations",
+      "public speaking",
+      "プレゼンテーション",
+      "conference talks",
+      "demo presentations"
+    ],
+    "negative_examples": [
+      "written reports",
+      "email communication",
+      "chat communication"
+    ]
+  },
+  {
+    "atom_id": "CS_COM_003",
+    "name": "Multilingual Communication",
+    "definition": "Working effectively in multiple languages, including professional communication in both English and Japanese.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "bilingual communication",
+      "Japanese language ability",
+      "多言語コミュニケーション",
+      "English/Japanese business communication",
+      "JLPT certification"
+    ],
+    "negative_examples": [
+      "translation services",
+      "localization engineering",
+      "interpreter work"
+    ]
+  },
+  {
+    "atom_id": "CS_PRD_001",
+    "name": "Product Thinking & Strategy",
+    "definition": "Understanding user needs, market context, and business goals to inform product decisions and feature prioritization.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "product thinking",
+      "product strategy",
+      "プロダクト思考",
+      "feature prioritization",
+      "user-centered product decisions"
+    ],
+    "negative_examples": [
+      "marketing strategy",
+      "business development",
+      "sales"
+    ]
+  },
+  {
+    "atom_id": "CS_PRD_002",
+    "name": "Agile & Iterative Development",
+    "definition": "Working within agile methodologies (Scrum, Kanban) and embracing iterative development with regular feedback loops.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "agile development",
+      "Scrum",
+      "アジャイル開発",
+      "sprint planning",
+      "iterative development",
+      "Kanban"
+    ],
+    "negative_examples": [
+      "waterfall development",
+      "big-bang releases",
+      "long-term planning only"
+    ]
+  },
+  {
+    "atom_id": "CS_PRD_003",
+    "name": "Data-Driven Decision Making",
+    "definition": "Using quantitative data, metrics, and analytics to inform decisions rather than relying solely on intuition.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "data-driven decisions",
+      "analytics",
+      "データドリブン意思決定",
+      "metrics-based evaluation",
+      "KPI tracking"
+    ],
+    "negative_examples": [
+      "data engineering",
+      "data science (model building)",
+      "business intelligence tools"
+    ]
+  },
+  {
+    "atom_id": "CS_QA_001",
+    "name": "Quality Assurance & Testing Strategy",
+    "definition": "Designing and implementing test strategies including unit, integration, and end-to-end testing for software quality.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "testing strategy",
+      "QA processes",
+      "品質保証",
+      "test automation",
+      "test-driven development"
+    ],
+    "negative_examples": [
+      "manual QA only",
+      "user acceptance testing (business-side)",
+      "compliance testing"
+    ]
+  },
+  {
+    "atom_id": "CS_LEV_001",
+    "name": "Portfolio & Self-Presentation",
+    "definition": "Packaging and presenting one's work effectively through portfolios, case studies, and professional branding.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "portfolio development",
+      "case study writing",
+      "ポートフォリオ構築",
+      "professional branding",
+      "work showcase"
+    ],
+    "negative_examples": [
+      "resume writing (basic)",
+      "social media management",
+      "marketing"
+    ]
+  },
+  {
+    "atom_id": "CS_LEV_002",
+    "name": "Continuous Learning & Adaptability",
+    "definition": "Rapidly learning new technologies, domains, and methodologies; adapting to changing requirements and contexts.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "fast learner",
+      "adaptability",
+      "継続的学習",
+      "technology curiosity",
+      "self-directed learning"
+    ],
+    "negative_examples": [
+      "deep specialization only",
+      "resistance to change",
+      "academic study"
+    ]
+  },
+  {
+    "atom_id": "CS_DOM_001",
+    "name": "Creative Technology & Digital Art",
+    "definition": "Combining creative arts with technology, including generative art, creative coding, and digital media production.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "creative coding",
+      "generative art",
+      "クリエイティブテクノロジー",
+      "digital art production",
+      "creative technology"
+    ],
+    "negative_examples": [
+      "traditional fine art",
+      "pure graphic design",
+      "photography"
+    ]
+  },
+  {
+    "atom_id": "CS_DOM_002",
+    "name": "Hardware/Software Interface",
+    "definition": "Working at the intersection of hardware and software, including embedded systems, IoT, physical prototyping, and sensor integration.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "embedded systems",
+      "IoT development",
+      "ハードウェア・ソフトウェア連携",
+      "sensor integration",
+      "physical computing"
+    ],
+    "negative_examples": [
+      "pure web development",
+      "pure hardware engineering",
+      "electrical engineering"
+    ]
+  },
+  {
+    "atom_id": "CS_DOM_003",
+    "name": "Accessibility & Inclusive Design",
+    "definition": "Designing and building products that are accessible to users with diverse abilities, following WCAG and inclusive design principles.",
+    "parent_atom_id": null,
+    "positive_examples": [
+      "accessibility",
+      "inclusive design",
+      "アクセシビリティ",
+      "WCAG compliance",
+      "universal design"
+    ],
+    "negative_examples": [
+      "general UX design",
+      "localization",
+      "internationalization"
+    ]
+  }
+]
