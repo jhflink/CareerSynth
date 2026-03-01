@@ -472,6 +472,40 @@ class TestReports:
         assert "atom_id" in content  # header row
         conn.close()
 
+    def test_generate_role_details_csv(self, db_path, tmp_dir):
+        """Should generate role_details.csv with phrase-level data."""
+        from career_rnd.db import init_db
+        from career_rnd.report import generate_role_details_csv
+
+        conn = init_db(str(db_path))
+        conn.execute(
+            "INSERT INTO roles (role_id, source_path, company, title, date_added) VALUES (?, ?, ?, ?, ?)",
+            ("R1", "/test", "TestCo", "Engineer", "2026-03-01"),
+        )
+        conn.execute(
+            "INSERT INTO atoms (atom_id, name, definition, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            ("A1", "Test Skill", "test def", "2026-03-01", "2026-03-01"),
+        )
+        conn.execute(
+            "INSERT INTO phrases (phrase_id, role_id, phrase, section, weight) VALUES (?, ?, ?, ?, ?)",
+            ("P1", "R1", "test phrase", "must", 1.0),
+        )
+        conn.execute(
+            "INSERT INTO mappings (mapping_id, phrase_id, atom_id, decision, confidence, rationale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("M1", "P1", "A1", "SAME", 0.85, "test match", "2026-03-01"),
+        )
+        conn.commit()
+
+        output_path = tmp_dir / "role_details.csv"
+        generate_role_details_csv(conn, str(output_path))
+        assert output_path.exists()
+        content = output_path.read_text()
+        assert "role_id" in content
+        assert "test phrase" in content
+        assert "Test Skill" in content
+        assert "SAME" in content
+        conn.close()
+
     def test_generate_html_report(self, db_path, tmp_dir):
         """Should generate an HTML report."""
         from career_rnd.db import init_db

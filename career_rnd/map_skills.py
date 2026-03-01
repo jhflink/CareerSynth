@@ -11,8 +11,8 @@ from typing import Any
 DECISIONS_LOG = Path(__file__).parent.parent / "skill_library" / "decisions.jsonl"
 
 # Similarity thresholds
-HIGH_THRESHOLD = 0.82  # Auto-map as SAME
-LOW_THRESHOLD = 0.55   # Below this, propose NEW
+HIGH_THRESHOLD = 0.72  # Auto-map as SAME
+LOW_THRESHOLD = 0.45   # Below this, propose NEW
 
 
 def _get_mapping_decisions(

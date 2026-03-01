@@ -24,6 +24,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .score {{ font-weight: bold; color: #228be6; }}
         .meta {{ color: #868e96; font-size: 0.9rem; margin-bottom: 2rem; }}
         .bar {{ display: inline-block; height: 12px; background: #228be6; border-radius: 2px; }}
+        .role-card {{ background: white; border-radius: 6px; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }}
+        .role-header {{ padding: 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; background: #f1f3f5; border-bottom: 1px solid #dee2e6; }}
+        .role-header:hover {{ background: #e9ecef; }}
+        .role-stats {{ margin-left: auto; color: #868e96; font-size: 0.85rem; }}
+        .toggle {{ font-size: 0.7rem; transition: transform 0.2s; }}
+        .role-card.open .toggle {{ transform: rotate(90deg); }}
+        .role-body {{ display: none; padding: 0; }}
+        .role-card.open .role-body {{ display: block; }}
+        .role-body table {{ margin: 0; box-shadow: none; }}
+        .decision-same {{ color: #2b8a3e; font-weight: 600; }}
+        .decision-child {{ color: #1971c2; font-weight: 600; }}
+        .decision-new {{ color: #e8590c; }}
+        .decision-ambiguous {{ color: #868e96; }}
+        td.rationale {{ font-size: 0.8rem; color: #868e96; max-width: 300px; }}
     </style>
 </head>
 <body>
@@ -65,8 +79,39 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             {cluster_rows}
         </tbody>
     </table>
+
+    <h2>Role Details</h2>
+    {role_detail_cards}
 </body>
 </html>
+"""
+
+ROLE_CARD_TEMPLATE = """
+<div class="role-card">
+    <div class="role-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="toggle">&#9654;</span>
+        <strong>{company}</strong> — {title}
+        <span class="role-stats">{mapped_count}/{total_count} mapped | source: {source_file}</span>
+    </div>
+    <div class="role-body">
+        <table>
+            <thead>
+                <tr>
+                    <th>Section</th>
+                    <th>Weight</th>
+                    <th>Phrase</th>
+                    <th>Decision</th>
+                    <th>Atom</th>
+                    <th>Confidence</th>
+                    <th>Rationale</th>
+                </tr>
+            </thead>
+            <tbody>
+                {phrase_rows}
+            </tbody>
+        </table>
+    </div>
+</div>
 """
 
 
@@ -235,17 +280,141 @@ def generate_html_report(conn: sqlite3.Connection, output_path: str) -> str:
                 <td>{', '.join(atom_names)}</td>
             </tr>"""
 
+    # Build role detail cards
+    role_detail_cards = _build_role_detail_cards(conn)
+
     html = HTML_TEMPLATE.format(
         total_roles=total_roles,
         total_atoms=total_atoms,
         top_count=len(top_scores),
         spine_rows=spine_rows,
         cluster_rows=cluster_rows or "<tr><td colspan='3'>No clusters detected yet</td></tr>",
+        role_detail_cards=role_detail_cards or "<p>No roles ingested yet.</p>",
     )
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)
+
+    return output_path
+
+
+def _build_role_detail_cards(conn: sqlite3.Connection) -> str:
+    """Build HTML role detail cards for each ingested role."""
+    roles = conn.execute(
+        "SELECT role_id, company, title, source_path FROM roles ORDER BY date_added"
+    ).fetchall()
+
+    cards = ""
+    for role in roles:
+        role_id = role[0] if isinstance(role, tuple) else role["role_id"]
+        company = role[1] if isinstance(role, tuple) else role["company"]
+        title = role[2] if isinstance(role, tuple) else role["title"]
+        source_path = role[3] if isinstance(role, tuple) else role["source_path"]
+
+        # Get phrases with their mapping decisions
+        phrase_rows_data = conn.execute("""
+            SELECT p.phrase, p.section, p.weight,
+                   m.decision, m.atom_id, m.confidence, m.rationale,
+                   a.name as atom_name
+            FROM phrases p
+            LEFT JOIN mappings m ON p.phrase_id = m.phrase_id
+            LEFT JOIN atoms a ON m.atom_id = a.atom_id
+            WHERE p.role_id = ?
+            ORDER BY
+                CASE p.section
+                    WHEN 'must' THEN 1
+                    WHEN 'responsibility' THEN 2
+                    WHEN 'want' THEN 3
+                    WHEN 'profile' THEN 4
+                    ELSE 5
+                END,
+                p.phrase
+        """, (role_id,)).fetchall()
+
+        total_count = len(phrase_rows_data)
+        mapped_count = sum(
+            1 for r in phrase_rows_data
+            if (r[3] if isinstance(r, tuple) else r["decision"]) in ("SAME", "CHILD")
+        )
+
+        source_file = Path(source_path).name if source_path else "unknown"
+
+        phrase_rows = ""
+        for r in phrase_rows_data:
+            phrase = r[0] if isinstance(r, tuple) else r["phrase"]
+            section = r[1] if isinstance(r, tuple) else r["section"]
+            weight = r[2] if isinstance(r, tuple) else r["weight"]
+            decision = r[3] if isinstance(r, tuple) else r["decision"]
+            atom_id = r[4] if isinstance(r, tuple) else r["atom_id"]
+            confidence = r[5] if isinstance(r, tuple) else r["confidence"]
+            rationale = r[6] if isinstance(r, tuple) else r["rationale"]
+            atom_name = r[7] if isinstance(r, tuple) else r["atom_name"]
+
+            decision_str = decision or "—"
+            decision_class = f"decision-{(decision or 'new').lower()}"
+            atom_display = f"{atom_name}" if atom_name else "—"
+            conf_display = f"{confidence:.2f}" if confidence is not None else "—"
+            rationale_display = (rationale or "—")[:120]
+
+            phrase_rows += f"""
+                <tr>
+                    <td>{section or 'other'}</td>
+                    <td>{weight or 0:.1f}</td>
+                    <td>{phrase}</td>
+                    <td class="{decision_class}">{decision_str}</td>
+                    <td>{atom_display}</td>
+                    <td>{conf_display}</td>
+                    <td class="rationale">{rationale_display}</td>
+                </tr>"""
+
+        cards += ROLE_CARD_TEMPLATE.format(
+            company=company or "Unknown",
+            title=title or "Unknown",
+            mapped_count=mapped_count,
+            total_count=total_count,
+            source_file=source_file,
+            phrase_rows=phrase_rows or "<tr><td colspan='7'>No phrases extracted</td></tr>",
+        )
+
+    return cards
+
+
+def generate_role_details_csv(conn: sqlite3.Connection, output_path: str) -> str:
+    """Generate role_details.csv with one row per phrase."""
+    rows = conn.execute("""
+        SELECT r.role_id, r.company, r.title,
+               p.phrase, p.section, p.weight,
+               m.atom_id, a.name as atom_name,
+               m.decision, m.confidence, m.rationale
+        FROM phrases p
+        JOIN roles r ON p.role_id = r.role_id
+        LEFT JOIN mappings m ON p.phrase_id = m.phrase_id
+        LEFT JOIN atoms a ON m.atom_id = a.atom_id
+        ORDER BY r.role_id, p.section, p.phrase
+    """).fetchall()
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "role_id", "company", "title", "phrase", "section", "weight",
+            "atom_id", "atom_name", "decision", "confidence", "rationale"
+        ])
+        for row in rows:
+            writer.writerow([
+                row[0] if isinstance(row, tuple) else row["role_id"],
+                row[1] if isinstance(row, tuple) else row["company"],
+                row[2] if isinstance(row, tuple) else row["title"],
+                row[3] if isinstance(row, tuple) else row["phrase"],
+                row[4] if isinstance(row, tuple) else row["section"],
+                row[5] if isinstance(row, tuple) else row["weight"],
+                row[6] if isinstance(row, tuple) else row["atom_id"],
+                row[7] if isinstance(row, tuple) else row["atom_name"],
+                row[8] if isinstance(row, tuple) else row["decision"],
+                row[9] if isinstance(row, tuple) else row["confidence"],
+                row[10] if isinstance(row, tuple) else row["rationale"],
+            ])
 
     return output_path
 
@@ -271,6 +440,7 @@ def generate_reports(
         paths.append(generate_overlap_spine_csv(conn, str(out / "overlap_spine.csv")))
         paths.append(generate_role_cluster_csv(conn, str(out / "role_cluster_summary.csv")))
         paths.append(generate_heatmap_csv(conn, str(out / "role_skill_heatmap.csv")))
+        paths.append(generate_role_details_csv(conn, str(out / "role_details.csv")))
 
     if fmt in ("html", "all"):
         paths.append(generate_html_report(conn, str(out / "report.html")))
