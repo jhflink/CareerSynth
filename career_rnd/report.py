@@ -4,7 +4,8 @@ import csv
 import sqlite3
 from pathlib import Path
 
-from career_rnd.overlap import compute_overlap_scores, build_cooccurrence_graph, _detect_clusters
+from career_rnd.overlap import compute_overlap_scores, compute_distinctive_scores, build_cooccurrence_graph, _detect_clusters
+from career_rnd.classify import get_classifications
 from career_rnd.llm import generate_synthesis_summary
 
 
@@ -13,7 +14,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CareerSynth — Overlap Spine Report</title>
+    <title>CareerSynth — Career Distinctiveness Report</title>
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 2rem; background: #f8f9fa; color: #212529; }}
         h1 {{ color: #495057; border-bottom: 2px solid #dee2e6; padding-bottom: 0.5rem; }}
@@ -26,7 +27,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .meta {{ color: #868e96; font-size: 0.9rem; margin-bottom: 2rem; }}
         .synthesis {{ background: white; padding: 1.25rem 1.5rem; border-radius: 6px; margin: 1.5rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #228be6; line-height: 1.6; color: #495057; }}
         .role-description {{ padding: 0.75rem 1rem; color: #495057; font-size: 0.9rem; line-height: 1.5; border-bottom: 1px solid #dee2e6; background: #f8f9fa; }}
-        .bar {{ display: inline-block; height: 12px; background: #228be6; border-radius: 2px; }}
+        .bar {{ display: inline-block; height: 12px; border-radius: 2px; }}
+        .bar-diff {{ background: #228be6; }}
+        .bar-ts {{ background: #adb5bd; }}
+        .bar-niche {{ background: #fab005; }}
         .role-card {{ background: white; border-radius: 6px; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }}
         .role-header {{ padding: 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; background: #f1f3f5; border-bottom: 1px solid #dee2e6; }}
         .role-header:hover {{ background: #e9ecef; }}
@@ -41,35 +45,44 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .decision-new {{ color: #e8590c; }}
         .decision-ambiguous {{ color: #868e96; }}
         td.rationale {{ font-size: 0.8rem; color: #868e96; max-width: 300px; }}
+        .badge {{ display: inline-block; padding: 0.15rem 0.45rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-left: 0.4rem; vertical-align: middle; }}
+        .badge-diff {{ background: #d0ebff; color: #1864ab; }}
+        .badge-ts-sw {{ background: #e9ecef; color: #495057; }}
+        .badge-ts-gd {{ background: #e9ecef; color: #495057; }}
+        .badge-niche {{ background: #fff3bf; color: #e67700; }}
+        .badge-ambiguous {{ background: #fff4e6; color: #d9480f; }}
+        .badge-pinned {{ background: #ffe8cc; color: #d9480f; font-size: 0.65rem; }}
+        details {{ margin: 1rem 0; }}
+        summary {{ cursor: pointer; font-weight: 600; color: #6c757d; padding: 0.5rem 0; }}
+        summary:hover {{ color: #495057; }}
+        .section-note {{ color: #868e96; font-size: 0.85rem; margin: 0.25rem 0 0.75rem 0; }}
     </style>
 </head>
 <body>
-    <h1>🔬 CareerSynth — Overlap Spine Report</h1>
+    <h1>🔬 CareerSynth — Career Distinctiveness Report</h1>
     <div class="meta">
-        <p>Total roles: {total_roles} | Total atoms: {total_atoms} | Top atoms shown: {top_count}</p>
+        <p>Total roles: {total_roles} | Total atoms: {total_atoms} | Classified: {classified_count}</p>
     </div>
 
     {synthesis_summary}
 
-    <h2>Overlap Spine (Top Atoms by Overlap Score)</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Atom ID</th>
-                <th>Name</th>
-                <th>Score</th>
-                <th>Visual</th>
-                <th>Frequency</th>
-                <th>Centrality</th>
-                <th>Cluster Coverage</th>
-                <th>Roles</th>
-            </tr>
-        </thead>
-        <tbody>
-            {spine_rows}
-        </tbody>
-    </table>
+    <h2>🎯 Differentiator Spine</h2>
+    <p class="section-note">Skills that define what makes your role cluster unique. Ranked by Distinctive Score.</p>
+    {differentiator_section}
+
+    <details>
+        <summary>📋 Table-Stakes Foundation ({table_stakes_count} skills)</summary>
+        <p class="section-note">Expected baseline skills — important but not differentiating.</p>
+        {table_stakes_section}
+    </details>
+
+    <details>
+        <summary>🔍 Niche Signals ({niche_count} skills)</summary>
+        <p class="section-note">Rare or emerging specializations — strategically interesting.</p>
+        {niche_section}
+    </details>
+
+    {ambiguous_section}
 
     <h2>Role Clusters</h2>
     <table>
@@ -238,31 +251,71 @@ def generate_heatmap_csv(conn: sqlite3.Connection, output_path: str) -> str:
     return output_path
 
 
+def _build_scored_table(scores: list[dict], bar_class: str = "bar-diff") -> str:
+    """Build an HTML table from scored atoms."""
+    if not scores:
+        return "<p><em>No atoms in this category.</em></p>"
+
+    max_score = max((s.get("distinctive_score", s["overlap_score"]) for s in scores), default=1.0) or 1.0
+    rows = ""
+    for i, s in enumerate(scores, 1):
+        d_score = s.get("distinctive_score", s["overlap_score"])
+        bar_width = int(200 * d_score / max_score)
+        pin = ' <span class="badge badge-pinned">\U0001f4cc</span>' if s.get("is_pinned") else ""
+        rationale = s.get("classification_rationale", "")[:100]
+        rationale_td = f' <td class="rationale">{rationale}</td>' if rationale else '<td></td>'
+        rows += f"""
+            <tr>
+                <td>{i}</td>
+                <td>{s['name']}{pin}</td>
+                <td class="score">{d_score:.4f}</td>
+                <td><span class="bar {bar_class}" style="width:{bar_width}px"></span></td>
+                <td>{s['overlap_score']:.4f}</td>
+                <td>{s['role_count']}</td>
+               {rationale_td}
+            </tr>"""
+
+    return f"""<table>
+        <thead><tr>
+            <th>#</th><th>Name</th><th>D-Score</th><th>Visual</th>
+            <th>Overlap</th><th>Roles</th><th>Rationale</th>
+        </tr></thead>
+        <tbody>{rows}</tbody>
+    </table>"""
+
+
 def generate_html_report(conn: sqlite3.Connection, output_path: str) -> str:
-    """Generate an HTML overlap spine report."""
-    scores = compute_overlap_scores(conn)
-    top_scores = scores[:20]
+    """Generate an HTML distinctiveness report."""
+    d_scores = compute_distinctive_scores(conn)
+    classifications = get_classifications(conn)
+    has_classifications = bool(classifications)
 
     total_roles = conn.execute("SELECT COUNT(*) FROM roles").fetchone()[0]
     total_atoms = conn.execute("SELECT COUNT(*) FROM atoms").fetchone()[0]
 
-    # Build spine rows
-    spine_rows = ""
-    max_score = max((s["overlap_score"] for s in top_scores), default=1.0) or 1.0
-    for i, s in enumerate(top_scores, 1):
-        bar_width = int(200 * s["overlap_score"] / max_score)
-        spine_rows += f"""
-            <tr>
-                <td>{i}</td>
-                <td>{s['atom_id']}</td>
-                <td>{s['name']}</td>
-                <td class="score">{s['overlap_score']:.4f}</td>
-                <td><span class="bar" style="width:{bar_width}px"></span></td>
-                <td>{s['frequency']:.3f}</td>
-                <td>{s['centrality']:.3f}</td>
-                <td>{s['cluster_coverage']:.3f}</td>
-                <td>{s['role_count']}</td>
-            </tr>"""
+    # Split atoms by classification label
+    differentiators = [s for s in d_scores if s.get("label") == "DIFFERENTIATOR" and s["overlap_score"] > 0]
+    table_stakes = [s for s in d_scores if s.get("label", "").startswith("TABLE_STAKES") and s["overlap_score"] > 0]
+    niche = [s for s in d_scores if s.get("label") == "NICHE" and s["overlap_score"] > 0]
+    ambiguous = [s for s in d_scores if s.get("label") == "AMBIGUOUS" and s["overlap_score"] > 0]
+
+    # If no classifications exist, show all scored atoms as differentiators (fallback)
+    if not has_classifications:
+        differentiators = [s for s in d_scores if s["overlap_score"] > 0][:20]
+
+    # Build sections
+    differentiator_section = _build_scored_table(differentiators, "bar-diff")
+    table_stakes_section = _build_scored_table(table_stakes, "bar-ts")
+    niche_section = _build_scored_table(niche, "bar-niche")
+
+    ambiguous_section = ""
+    if ambiguous:
+        ambiguous_section = f"""
+        <details>
+            <summary>\u2753 Ambiguous / Under Review ({len(ambiguous)} skills)</summary>
+            <p class="section-note">Classification uncertain \u2014 consider reviewing with <code>career classify review</code>.</p>
+            {_build_scored_table(ambiguous, "bar-ts")}
+        </details>"""
 
     # Build cluster rows
     G = build_cooccurrence_graph(conn)
@@ -273,7 +326,6 @@ def generate_html_report(conn: sqlite3.Connection, output_path: str) -> str:
 
     cluster_rows = ""
     for cid, atom_ids in sorted(clusters_info.items()):
-        # Get atom names
         atom_names = []
         for aid in atom_ids[:5]:
             row = conn.execute("SELECT name FROM atoms WHERE atom_id=?", (aid,)).fetchone()
@@ -289,25 +341,33 @@ def generate_html_report(conn: sqlite3.Connection, output_path: str) -> str:
     # Build role detail cards
     role_detail_cards = _build_role_detail_cards(conn)
 
-    # Generate synthesis summary via LLM
+    # Generate synthesis summary via LLM (pass differentiators as top_scores)
     num_clusters = len(set(cluster_map.values())) if cluster_map else 0
+    synthesis_input = differentiators[:8] if differentiators else [s for s in d_scores if s["overlap_score"] > 0][:8]
     try:
         synthesis_text = generate_synthesis_summary(
             total_roles=total_roles,
             total_atoms=total_atoms,
-            top_scores=top_scores,
+            top_scores=synthesis_input,
             num_clusters=num_clusters,
         )
         synthesis_html = f'<div class="synthesis">{synthesis_text}</div>'
     except Exception:
         synthesis_html = ""
 
+    classified_count = len(classifications)
+
     html = HTML_TEMPLATE.format(
         total_roles=total_roles,
         total_atoms=total_atoms,
-        top_count=len(top_scores),
+        classified_count=classified_count,
         synthesis_summary=synthesis_html,
-        spine_rows=spine_rows,
+        differentiator_section=differentiator_section,
+        table_stakes_section=table_stakes_section,
+        table_stakes_count=len(table_stakes),
+        niche_section=niche_section,
+        niche_count=len(niche),
+        ambiguous_section=ambiguous_section,
         cluster_rows=cluster_rows or "<tr><td colspan='3'>No clusters detected yet</td></tr>",
         role_detail_cards=role_detail_cards or "<p>No roles ingested yet.</p>",
     )
@@ -319,8 +379,19 @@ def generate_html_report(conn: sqlite3.Connection, output_path: str) -> str:
     return output_path
 
 
+LABEL_BADGE_MAP = {
+    "DIFFERENTIATOR": ("DIFF", "badge-diff"),
+    "TABLE_STAKES_SOFTWARE": ("TS:SW", "badge-ts-sw"),
+    "TABLE_STAKES_GAMEDEV": ("TS:GD", "badge-ts-gd"),
+    "NICHE": ("NICHE", "badge-niche"),
+    "AMBIGUOUS": ("?", "badge-ambiguous"),
+}
+
+
 def _build_role_detail_cards(conn: sqlite3.Connection) -> str:
     """Build HTML role detail cards for each ingested role."""
+    classifications = get_classifications(conn)
+
     roles = conn.execute(
         "SELECT role_id, company, title, source_path, description FROM roles ORDER BY date_added"
     ).fetchall()
@@ -374,7 +445,14 @@ def _build_role_detail_cards(conn: sqlite3.Connection) -> str:
 
             decision_str = decision or "—"
             decision_class = f"decision-{(decision or 'new').lower()}"
-            atom_display = f"{atom_name}" if atom_name else "—"
+            # Add classification badge if available
+            badge_html = ""
+            if atom_id and atom_id in classifications:
+                cls_label = classifications[atom_id]["label"]
+                badge_text, badge_class = LABEL_BADGE_MAP.get(cls_label, ("", ""))
+                if badge_text:
+                    badge_html = f' <span class="badge {badge_class}">{badge_text}</span>'
+            atom_display = f"{atom_name}{badge_html}" if atom_name else "—"
             conf_display = f"{confidence:.2f}" if confidence is not None else "—"
             rationale_display = (rationale or "—")[:120]
 

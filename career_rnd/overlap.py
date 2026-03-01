@@ -180,6 +180,50 @@ def compute_overlap_scores(conn: sqlite3.Connection) -> list[dict]:
     return scores
 
 
+# Distinctiveness multipliers by classification label
+DISTINCTIVENESS_MULTIPLIERS = {
+    "DIFFERENTIATOR": 1.5,
+    "NICHE": 1.2,
+    "AMBIGUOUS": 1.0,
+    "TABLE_STAKES_GAMEDEV": 0.4,
+    "TABLE_STAKES_SOFTWARE": 0.2,
+}
+
+
+def compute_distinctive_scores(conn: sqlite3.Connection) -> list[dict]:
+    """Compute distinctive scores = OverlapScore × distinctiveness multiplier.
+
+    Enriches each atom with classification label and reranks.
+    Falls back gracefully if no classifications exist (returns overlap scores as-is).
+    """
+    from career_rnd.classify import get_classifications
+
+    scores = compute_overlap_scores(conn)
+    classifications = get_classifications(conn)
+
+    if not classifications:
+        # No classifications yet — return overlap scores with empty label
+        for s in scores:
+            s["label"] = ""
+            s["distinctive_score"] = s["overlap_score"]
+            s["is_pinned"] = 0
+        return scores
+
+    for s in scores:
+        cls = classifications.get(s["atom_id"], {})
+        label = cls.get("label", "")
+        s["label"] = label
+        s["classification_rationale"] = cls.get("rationale", "")
+        s["is_pinned"] = cls.get("is_pinned", 0)
+
+        multiplier = DISTINCTIVENESS_MULTIPLIERS.get(label, 1.0)
+        s["distinctive_score"] = round(s["overlap_score"] * multiplier, 4)
+
+    # Sort by distinctive_score descending
+    scores.sort(key=lambda x: x["distinctive_score"], reverse=True)
+    return scores
+
+
 def run_overlap_analysis(conn: sqlite3.Connection) -> dict:
     """Run the complete overlap analysis pipeline.
 

@@ -582,7 +582,244 @@ class TestReports:
 
 
 # ============================================================
-# CP8: CLI Tests
+# CP8a: Distinctiveness Classification Tests
+# ============================================================
+
+class TestDistinctiveness:
+    """Test atom distinctiveness classification and scoring."""
+
+    def _setup_mapped_atoms(self, db_path):
+        """Helper: create DB with atoms, roles, phrases, and mappings."""
+        from career_rnd.db import init_db
+        conn = init_db(str(db_path))
+        # 2 roles, 3 atoms, mappings
+        for i in range(1, 3):
+            conn.execute(
+                "INSERT INTO roles (role_id, source_path, date_added) VALUES (?, ?, ?)",
+                (f"R{i}", f"/test{i}", "2026-03-01"),
+            )
+        for aid, name, defn in [("A1", "Game Engine", "game engine skills"),
+                                 ("A2", "Spatial UI", "XR interface design"),
+                                 ("A3", "Documentation", "writing docs")]:
+            conn.execute(
+                "INSERT INTO atoms (atom_id, name, definition, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (aid, name, defn, "2026-03-01", "2026-03-01"),
+            )
+        # A1 mapped in both roles, A2 in role 1 only, A3 in both roles
+        for rid, aid, pid, mid in [
+            ("R1", "A1", "P1", "M1"), ("R2", "A1", "P2", "M2"),
+            ("R1", "A2", "P3", "M3"),
+            ("R1", "A3", "P4", "M4"), ("R2", "A3", "P5", "M5"),
+        ]:
+            conn.execute(
+                "INSERT OR IGNORE INTO phrases (phrase_id, role_id, phrase, section, weight) VALUES (?, ?, ?, ?, ?)",
+                (pid, rid, f"phrase for {aid}", "must", 1.0),
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO mappings (mapping_id, phrase_id, atom_id, decision, confidence, rationale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (mid, pid, aid, "SAME", 0.9, "test", "2026-03-01"),
+            )
+        conn.commit()
+        return conn
+
+    def test_classify_atoms_with_mock(self, db_path):
+        """classify_atoms should store classifications in DB."""
+        from career_rnd.classify import classify_atoms, get_classifications
+        conn = self._setup_mapped_atoms(db_path)
+
+        mock_response = json.dumps({
+            "classifications": [
+                {"atom_id": "A1", "label": "TABLE_STAKES_GAMEDEV", "confidence": 0.85, "rationale": "Common game dev skill"},
+                {"atom_id": "A2", "label": "DIFFERENTIATOR", "confidence": 0.9, "rationale": "Unique XR focus"},
+                {"atom_id": "A3", "label": "TABLE_STAKES_SOFTWARE", "confidence": 0.8, "rationale": "Expected of all engineers"},
+            ],
+            "assumed_universe": "game dev roles",
+        })
+        with patch("career_rnd.classify._call_llm", return_value=mock_response):
+            count = classify_atoms(conn)
+
+        assert count == 3
+        cls = get_classifications(conn)
+        assert cls["A1"]["label"] == "TABLE_STAKES_GAMEDEV"
+        assert cls["A2"]["label"] == "DIFFERENTIATOR"
+        assert cls["A3"]["label"] == "TABLE_STAKES_SOFTWARE"
+        conn.close()
+
+    def test_confidence_gate_forces_ambiguous(self, db_path):
+        """Atoms with confidence < 0.6 should be forced to AMBIGUOUS."""
+        from career_rnd.classify import classify_atoms, get_classifications
+        conn = self._setup_mapped_atoms(db_path)
+
+        mock_response = json.dumps({
+            "classifications": [
+                {"atom_id": "A1", "label": "DIFFERENTIATOR", "confidence": 0.3, "rationale": "Uncertain"},
+                {"atom_id": "A2", "label": "NICHE", "confidence": 0.9, "rationale": "Confident"},
+                {"atom_id": "A3", "label": "TABLE_STAKES_SOFTWARE", "confidence": 0.7, "rationale": "OK"},
+            ],
+            "assumed_universe": "test",
+        })
+        with patch("career_rnd.classify._call_llm", return_value=mock_response):
+            classify_atoms(conn)
+
+        cls = get_classifications(conn)
+        assert cls["A1"]["label"] == "AMBIGUOUS"  # confidence < 0.6
+        assert cls["A2"]["label"] == "NICHE"       # confidence >= 0.6
+        conn.close()
+
+    def test_pin_unpin_atom(self, db_path):
+        """Pin should override classification; unpin should allow reclassification."""
+        from career_rnd.classify import pin_atom, unpin_atom, get_classifications
+        conn = self._setup_mapped_atoms(db_path)
+
+        assert pin_atom(conn, "A1", "DIFFERENTIATOR")
+        cls = get_classifications(conn)
+        assert cls["A1"]["label"] == "DIFFERENTIATOR"
+        assert cls["A1"]["is_pinned"] == 1
+
+        assert unpin_atom(conn, "A1")
+        cls = get_classifications(conn)
+        assert cls["A1"]["is_pinned"] == 0
+        conn.close()
+
+    def test_pinned_atoms_skipped_during_classify(self, db_path):
+        """Pinned atoms should not be reclassified."""
+        from career_rnd.classify import classify_atoms, pin_atom, get_classifications
+        conn = self._setup_mapped_atoms(db_path)
+
+        # Pin A1 first
+        pin_atom(conn, "A1", "NICHE")
+
+        mock_response = json.dumps({
+            "classifications": [
+                {"atom_id": "A2", "label": "DIFFERENTIATOR", "confidence": 0.9, "rationale": "test"},
+                {"atom_id": "A3", "label": "TABLE_STAKES_SOFTWARE", "confidence": 0.8, "rationale": "test"},
+            ],
+            "assumed_universe": "test",
+        })
+        with patch("career_rnd.classify._call_llm", return_value=mock_response):
+            count = classify_atoms(conn)
+
+        assert count == 2  # Only A2 and A3 classified
+        cls = get_classifications(conn)
+        assert cls["A1"]["label"] == "NICHE"  # Still pinned
+        assert cls["A1"]["is_pinned"] == 1
+        conn.close()
+
+    def test_compute_distinctive_scores(self, db_path):
+        """DistinctiveScore should apply multipliers correctly."""
+        from career_rnd.overlap import compute_distinctive_scores
+        from career_rnd.classify import pin_atom
+        conn = self._setup_mapped_atoms(db_path)
+
+        # Pin classifications so we have known labels
+        pin_atom(conn, "A1", "TABLE_STAKES_GAMEDEV")
+        pin_atom(conn, "A2", "DIFFERENTIATOR")
+        pin_atom(conn, "A3", "TABLE_STAKES_SOFTWARE")
+
+        scores = compute_distinctive_scores(conn)
+        score_map = {s["atom_id"]: s for s in scores}
+
+        # DIFFERENTIATOR should get 1.5x boost
+        assert score_map["A2"]["distinctive_score"] == pytest.approx(
+            score_map["A2"]["overlap_score"] * 1.5, abs=0.001
+        )
+        # TABLE_STAKES_GAMEDEV should get 0.4x
+        assert score_map["A1"]["distinctive_score"] == pytest.approx(
+            score_map["A1"]["overlap_score"] * 0.4, abs=0.001
+        )
+        # TABLE_STAKES_SOFTWARE should get 0.2x
+        assert score_map["A3"]["distinctive_score"] == pytest.approx(
+            score_map["A3"]["overlap_score"] * 0.2, abs=0.001
+        )
+        # DIFFERENTIATOR should now rank highest
+        assert scores[0]["atom_id"] == "A2"
+        conn.close()
+
+    def test_compute_distinctive_scores_no_classifications(self, db_path):
+        """Without classifications, should fall back to overlap scores."""
+        from career_rnd.overlap import compute_distinctive_scores
+        conn = self._setup_mapped_atoms(db_path)
+
+        scores = compute_distinctive_scores(conn)
+        for s in scores:
+            assert s["distinctive_score"] == s["overlap_score"]
+            assert s["label"] == ""
+        conn.close()
+
+    def test_html_report_with_classifications(self, db_path, tmp_dir):
+        """HTML report should show classified sections when classifications exist."""
+        from career_rnd.db import init_db
+        from career_rnd.classify import pin_atom
+        from career_rnd.report import generate_html_report
+
+        conn = init_db(str(db_path))
+        # Insert atoms
+        conn.execute(
+            "INSERT INTO atoms (atom_id, name, definition, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            ("A1", "Game Engine", "game engine", "2026-03-01", "2026-03-01"),
+        )
+        conn.execute(
+            "INSERT INTO atoms (atom_id, name, definition, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            ("A2", "Spatial UI", "XR design", "2026-03-01", "2026-03-01"),
+        )
+        # Insert roles, phrases, mappings
+        conn.execute(
+            "INSERT INTO roles (role_id, source_path, date_added) VALUES (?, ?, ?)",
+            ("R1", "/test", "2026-03-01"),
+        )
+        conn.execute(
+            "INSERT INTO phrases (phrase_id, role_id, phrase, section, weight) VALUES (?, ?, ?, ?, ?)",
+            ("P1", "R1", "game engine", "must", 1.0),
+        )
+        conn.execute(
+            "INSERT INTO phrases (phrase_id, role_id, phrase, section, weight) VALUES (?, ?, ?, ?, ?)",
+            ("P2", "R1", "spatial ui", "want", 0.6),
+        )
+        conn.execute(
+            "INSERT INTO mappings (mapping_id, phrase_id, atom_id, decision, confidence, rationale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("M1", "P1", "A1", "SAME", 0.9, "test", "2026-03-01"),
+        )
+        conn.execute(
+            "INSERT INTO mappings (mapping_id, phrase_id, atom_id, decision, confidence, rationale, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("M2", "P2", "A2", "SAME", 0.85, "test", "2026-03-01"),
+        )
+        conn.commit()
+
+        # Pin classifications
+        pin_atom(conn, "A1", "TABLE_STAKES_GAMEDEV")
+        pin_atom(conn, "A2", "DIFFERENTIATOR")
+
+        output_path = tmp_dir / "report.html"
+        with patch("career_rnd.report.generate_synthesis_summary", return_value="Diff synthesis."):
+            generate_html_report(conn, str(output_path))
+
+        content = output_path.read_text()
+        assert "Differentiator Spine" in content
+        assert "Table-Stakes Foundation" in content
+        assert "Spatial UI" in content
+        assert "Diff synthesis." in content
+        conn.close()
+
+    def test_classify_prompt_exists(self):
+        """classify_distinctiveness.md prompt template should exist."""
+        prompt_path = (
+            Path(__file__).parent.parent / "career_rnd" / "prompts" / "classify_distinctiveness.md"
+        )
+        assert prompt_path.exists()
+
+    def test_atom_classifications_table_exists(self, db_path):
+        """atom_classifications table should be created by init_db."""
+        from career_rnd.db import init_db
+        conn = init_db(str(db_path))
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='atom_classifications'"
+        )
+        assert cursor.fetchone() is not None
+        conn.close()
+
+
+# ============================================================
+# CP8b: CLI Tests
 # ============================================================
 
 class TestCLI:

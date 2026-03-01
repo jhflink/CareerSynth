@@ -152,6 +152,104 @@ def describe_roles(
     conn.close()
 
 
+classify_app = typer.Typer(help="Atom distinctiveness classification commands.")
+app.add_typer(classify_app, name="classify")
+
+
+@classify_app.callback(invoke_without_command=True)
+def classify_run(
+    ctx: typer.Context,
+    db: str = typer.Option(DEFAULT_DB_PATH, help="Database path."),
+    universe: str = typer.Option(
+        "",
+        help="Reference universe description (e.g. 'XR R&D prototyping roles').",
+    ),
+):
+    """Classify atoms by distinctiveness (TABLE_STAKES / DIFFERENTIATOR / NICHE)."""
+    if ctx.invoked_subcommand is not None:
+        return
+
+    from career_rnd.classify import classify_atoms
+
+    conn = get_db(db)
+    ref = universe if universe else None
+    count = classify_atoms(conn, reference_universe=ref)
+    console.print(f"[green]Classified {count} atom(s).[/green]")
+
+    # Show summary
+    cursor = conn.execute(
+        "SELECT label, COUNT(*) FROM atom_classifications GROUP BY label ORDER BY label"
+    )
+    for row in cursor.fetchall():
+        console.print(f"  {row[0]}: {row[1]}")
+    conn.close()
+
+
+@classify_app.command("pin")
+def classify_pin(
+    atom_id: str = typer.Argument(..., help="Atom ID to pin."),
+    label: str = typer.Argument(
+        ...,
+        help="Label: TABLE_STAKES_SOFTWARE, TABLE_STAKES_GAMEDEV, DIFFERENTIATOR, NICHE, AMBIGUOUS",
+    ),
+    db: str = typer.Option(DEFAULT_DB_PATH, help="Database path."),
+):
+    """Pin an atom to a specific classification label (user override)."""
+    from career_rnd.classify import pin_atom
+
+    conn = get_db(db)
+    try:
+        success = pin_atom(conn, atom_id, label)
+        if success:
+            console.print(f"[green]Pinned {atom_id} as {label}.[/green]")
+        else:
+            console.print(f"[red]Atom {atom_id} not found.[/red]")
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+    conn.close()
+
+
+@classify_app.command("unpin")
+def classify_unpin(
+    atom_id: str = typer.Argument(..., help="Atom ID to unpin."),
+    db: str = typer.Option(DEFAULT_DB_PATH, help="Database path."),
+):
+    """Remove pin from an atom, allowing reclassification."""
+    from career_rnd.classify import unpin_atom
+
+    conn = get_db(db)
+    success = unpin_atom(conn, atom_id)
+    if success:
+        console.print(f"[green]Unpinned {atom_id}.[/green]")
+    else:
+        console.print(f"[yellow]{atom_id} was not pinned.[/yellow]")
+    conn.close()
+
+
+@classify_app.command("review")
+def classify_review(
+    db: str = typer.Option(DEFAULT_DB_PATH, help="Database path."),
+):
+    """Show atoms needing review (AMBIGUOUS or low confidence)."""
+    from career_rnd.classify import get_review_queue
+
+    conn = get_db(db)
+    queue = get_review_queue(conn)
+    if not queue:
+        console.print("[green]No atoms need review.[/green]")
+    else:
+        console.print(f"[yellow]{len(queue)} atom(s) need review:[/yellow]")
+        for item in queue:
+            pin_indicator = " \U0001f4cc" if item["is_pinned"] else ""
+            console.print(
+                f"  {item['atom_id']:15s} {item['name']:40s} "
+                f"{item['label']:25s} conf={item['confidence']:.2f}{pin_indicator}"
+            )
+            if item["rationale"]:
+                console.print(f"    → {item['rationale']}")
+    conn.close()
+
+
 @atoms_app.command("seed")
 def atoms_seed(
     db: str = typer.Option(DEFAULT_DB_PATH, help="Database path."),

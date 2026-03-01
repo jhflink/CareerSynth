@@ -87,6 +87,17 @@ def _create_tables(conn: sqlite3.Connection) -> None:
             FOREIGN KEY (atom_id) REFERENCES atoms(atom_id)
         );
 
+        CREATE TABLE IF NOT EXISTS atom_classifications (
+            atom_id TEXT PRIMARY KEY,
+            label TEXT NOT NULL,
+            confidence REAL,
+            rationale TEXT,
+            reference_universe TEXT,
+            classified_at TEXT NOT NULL,
+            is_pinned INTEGER DEFAULT 0,
+            FOREIGN KEY (atom_id) REFERENCES atoms(atom_id)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_phrases_role ON phrases(role_id);
         CREATE INDEX IF NOT EXISTS idx_mappings_phrase ON mappings(phrase_id);
         CREATE INDEX IF NOT EXISTS idx_mappings_atom ON mappings(atom_id);
