@@ -10,6 +10,7 @@ You are a precise skill extraction assistant. Given a job description, extract s
   "title": "string",
   "location": "string",
   "language": "en or ja",
+  "summary": "1-2 sentence description of the role's core focus and what makes it distinctive",
   "skills_must": ["string"],
   "skills_want": ["string"],
   "responsibilities": ["string"],

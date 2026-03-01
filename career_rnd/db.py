@@ -27,6 +27,7 @@ def init_db(db_path: str | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys=ON")
 
     _create_tables(conn)
+    _migrate(conn)
     return conn
 
 
@@ -41,7 +42,8 @@ def _create_tables(conn: sqlite3.Connection) -> None:
             location TEXT,
             date_added TEXT,
             raw_text_path TEXT,
-            lang TEXT
+            lang TEXT,
+            description TEXT
         );
 
         CREATE TABLE IF NOT EXISTS phrases (
@@ -91,6 +93,16 @@ def _create_tables(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_aliases_atom ON atom_aliases(atom_id);
     """)
     conn.commit()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Apply lightweight migrations for schema changes."""
+    # Add description column if missing (added in v2)
+    cursor = conn.execute("PRAGMA table_info(roles)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "description" not in columns:
+        conn.execute("ALTER TABLE roles ADD COLUMN description TEXT")
+        conn.commit()
 
 
 def get_db(db_path: str | None = None) -> sqlite3.Connection:

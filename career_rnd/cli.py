@@ -108,6 +108,50 @@ def report(
     conn.close()
 
 
+@app.command("describe-roles")
+def describe_roles(
+    db: str = typer.Option(DEFAULT_DB_PATH, help="Database path."),
+):
+    """Generate descriptions for roles that don't have one yet."""
+    from career_rnd.extract import extract_text
+    from career_rnd.llm import generate_role_description
+
+    conn = get_db(db)
+    cursor = conn.execute(
+        "SELECT role_id, company, title, raw_text_path FROM roles "
+        "WHERE (description IS NULL OR description = '') AND raw_text_path IS NOT NULL"
+    )
+    roles = cursor.fetchall()
+
+    if not roles:
+        console.print("[yellow]All roles already have descriptions.[/yellow]")
+        conn.close()
+        return
+
+    count = 0
+    for role in roles:
+        role_id = role["role_id"]
+        company = role["company"] or "Unknown"
+        title = role["title"] or "Unknown"
+        raw_path = role["raw_text_path"]
+
+        try:
+            text = extract_text(raw_path)
+            description = generate_role_description(text)
+            conn.execute(
+                "UPDATE roles SET description=? WHERE role_id=?",
+                (description, role_id),
+            )
+            conn.commit()
+            count += 1
+            console.print(f"  ✓ {company} — {title}")
+        except Exception as e:
+            console.print(f"  [red]✗ {company} — {title}: {e}[/red]")
+
+    console.print(f"[green]Generated descriptions for {count} role(s).[/green]")
+    conn.close()
+
+
 @atoms_app.command("seed")
 def atoms_seed(
     db: str = typer.Option(DEFAULT_DB_PATH, help="Database path."),

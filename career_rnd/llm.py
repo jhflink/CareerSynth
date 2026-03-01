@@ -97,12 +97,13 @@ def extract_skills_for_roles(conn: sqlite3.Connection) -> int:
 
             # Update role metadata
             conn.execute(
-                "UPDATE roles SET company=?, title=?, location=?, lang=? WHERE role_id=?",
+                "UPDATE roles SET company=?, title=?, location=?, lang=?, description=? WHERE role_id=?",
                 (
                     skills.get("company", ""),
                     skills.get("title", ""),
                     skills.get("location", ""),
                     skills.get("language", "en"),
+                    skills.get("summary", ""),
                     role_id,
                 ),
             )
@@ -136,6 +137,54 @@ def extract_skills_for_roles(conn: sqlite3.Connection) -> int:
             print(f"Warning: Failed to extract skills for {role_id}: {e}")
 
     return count
+
+
+def generate_role_description(raw_text: str) -> str:
+    """Generate a 1-2 sentence description of a role from its raw text.
+
+    Used to backfill descriptions for roles ingested before the summary
+    field was added to the extract_skills prompt.
+    """
+    prompt = (
+        "Given the following job description, write a 1-2 sentence summary "
+        "describing the role's core focus, team context, and what makes it "
+        "distinctive. Be specific — mention the domain, key technologies, "
+        "and the type of work. Output JSON: {\"summary\": \"...\"}\n\n"
+        "---\n\n" + raw_text[:3000]
+    )
+    response = _call_llm(prompt, system="You are a concise job description summarizer. Output valid JSON only.")
+    data = json.loads(response)
+    return data.get("summary", "")
+
+
+def generate_synthesis_summary(
+    total_roles: int,
+    total_atoms: int,
+    top_scores: list[dict],
+    num_clusters: int,
+) -> str:
+    """Generate a narrative synthesis of the overlap analysis data.
+
+    Returns a 2-4 sentence summary suitable for the HTML report header.
+    """
+    # Build a compact data summary for the LLM
+    top_atoms_text = ", ".join(
+        f"{s['name']} (score={s['overlap_score']}, {s['role_count']} roles)"
+        for s in top_scores[:8]
+    )
+    prompt = (
+        f"You are summarizing a career skill overlap analysis. "
+        f"Data: {total_roles} roles analyzed, {total_atoms} skill atoms in library, "
+        f"{num_clusters} role cluster(s) detected.\n"
+        f"Top overlapping atoms: {top_atoms_text}\n\n"
+        f"Write a 2-4 sentence narrative synthesis of what this data reveals "
+        f"about the user's career focus and skill convergence across these roles. "
+        f"Be specific about which skill areas dominate and what patterns emerge. "
+        f"Output JSON: {{\"synthesis\": \"...\"}}"
+    )
+    response = _call_llm(prompt, system="You are a career analyst. Output valid JSON only.")
+    data = json.loads(response)
+    return data.get("synthesis", "")
 
 
 def suggest_merges(conn: sqlite3.Connection) -> list[dict]:

@@ -526,6 +526,61 @@ class TestReports:
         conn.close()
 
 
+    def test_generate_role_description(self, sample_job_text):
+        """Should generate a role description via LLM."""
+        from career_rnd.llm import generate_role_description
+        mock_response = '{"summary": "This role leads UX prototyping for next-gen products."}'
+        with patch("career_rnd.llm._call_llm", return_value=mock_response):
+            description = generate_role_description(sample_job_text)
+        assert isinstance(description, str)
+        assert len(description) > 10
+
+    def test_generate_synthesis_summary(self):
+        """Should generate a synthesis summary via LLM."""
+        from career_rnd.llm import generate_synthesis_summary
+        mock_response = '{"synthesis": "Your career focuses on UX prototyping and spatial interfaces."}'
+        top_scores = [
+            {"name": "UX Design", "overlap_score": 0.83, "role_count": 3},
+            {"name": "Prototyping", "overlap_score": 0.61, "role_count": 2},
+        ]
+        with patch("career_rnd.llm._call_llm", return_value=mock_response):
+            synthesis = generate_synthesis_summary(
+                total_roles=4, total_atoms=40,
+                top_scores=top_scores, num_clusters=2,
+            )
+        assert isinstance(synthesis, str)
+        assert len(synthesis) > 10
+
+    def test_html_report_contains_role_description(self, db_path, tmp_dir):
+        """HTML report should include role description when present."""
+        from career_rnd.db import init_db
+        from career_rnd.report import generate_html_report
+
+        conn = init_db(str(db_path))
+        conn.execute(
+            "INSERT INTO roles (role_id, source_path, company, title, date_added, description) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("R1", "/test", "TestCo", "Engineer", "2026-03-01",
+             "This role focuses on building scalable systems."),
+        )
+        conn.execute(
+            "INSERT INTO atoms (atom_id, name, definition, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            ("A1", "Test Skill", "test def", "2026-03-01", "2026-03-01"),
+        )
+        conn.commit()
+
+        output_path = tmp_dir / "report.html"
+        with patch("career_rnd.report.generate_synthesis_summary", return_value="Synthesis text here."):
+            generate_html_report(conn, str(output_path))
+
+        content = output_path.read_text()
+        assert "This role focuses on building scalable systems." in content
+        assert "role-description" in content
+        assert "Synthesis text here." in content
+        assert "synthesis" in content
+        conn.close()
+
+
 # ============================================================
 # CP8: CLI Tests
 # ============================================================

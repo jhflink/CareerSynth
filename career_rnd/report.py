@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 
 from career_rnd.overlap import compute_overlap_scores, build_cooccurrence_graph, _detect_clusters
+from career_rnd.llm import generate_synthesis_summary
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -23,6 +24,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         tr:hover {{ background: #f1f3f5; }}
         .score {{ font-weight: bold; color: #228be6; }}
         .meta {{ color: #868e96; font-size: 0.9rem; margin-bottom: 2rem; }}
+        .synthesis {{ background: white; padding: 1.25rem 1.5rem; border-radius: 6px; margin: 1.5rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #228be6; line-height: 1.6; color: #495057; }}
+        .role-description {{ padding: 0.75rem 1rem; color: #495057; font-size: 0.9rem; line-height: 1.5; border-bottom: 1px solid #dee2e6; background: #f8f9fa; }}
         .bar {{ display: inline-block; height: 12px; background: #228be6; border-radius: 2px; }}
         .role-card {{ background: white; border-radius: 6px; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }}
         .role-header {{ padding: 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; background: #f1f3f5; border-bottom: 1px solid #dee2e6; }}
@@ -45,6 +48,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="meta">
         <p>Total roles: {total_roles} | Total atoms: {total_atoms} | Top atoms shown: {top_count}</p>
     </div>
+
+    {synthesis_summary}
 
     <h2>Overlap Spine (Top Atoms by Overlap Score)</h2>
     <table>
@@ -94,6 +99,7 @@ ROLE_CARD_TEMPLATE = """
         <span class="role-stats">{mapped_count}/{total_count} mapped | source: {source_file}</span>
     </div>
     <div class="role-body">
+        {description_block}
         <table>
             <thead>
                 <tr>
@@ -283,10 +289,24 @@ def generate_html_report(conn: sqlite3.Connection, output_path: str) -> str:
     # Build role detail cards
     role_detail_cards = _build_role_detail_cards(conn)
 
+    # Generate synthesis summary via LLM
+    num_clusters = len(set(cluster_map.values())) if cluster_map else 0
+    try:
+        synthesis_text = generate_synthesis_summary(
+            total_roles=total_roles,
+            total_atoms=total_atoms,
+            top_scores=top_scores,
+            num_clusters=num_clusters,
+        )
+        synthesis_html = f'<div class="synthesis">{synthesis_text}</div>'
+    except Exception:
+        synthesis_html = ""
+
     html = HTML_TEMPLATE.format(
         total_roles=total_roles,
         total_atoms=total_atoms,
         top_count=len(top_scores),
+        synthesis_summary=synthesis_html,
         spine_rows=spine_rows,
         cluster_rows=cluster_rows or "<tr><td colspan='3'>No clusters detected yet</td></tr>",
         role_detail_cards=role_detail_cards or "<p>No roles ingested yet.</p>",
@@ -302,7 +322,7 @@ def generate_html_report(conn: sqlite3.Connection, output_path: str) -> str:
 def _build_role_detail_cards(conn: sqlite3.Connection) -> str:
     """Build HTML role detail cards for each ingested role."""
     roles = conn.execute(
-        "SELECT role_id, company, title, source_path FROM roles ORDER BY date_added"
+        "SELECT role_id, company, title, source_path, description FROM roles ORDER BY date_added"
     ).fetchall()
 
     cards = ""
@@ -311,6 +331,7 @@ def _build_role_detail_cards(conn: sqlite3.Connection) -> str:
         company = role[1] if isinstance(role, tuple) else role["company"]
         title = role[2] if isinstance(role, tuple) else role["title"]
         source_path = role[3] if isinstance(role, tuple) else role["source_path"]
+        description = role[4] if isinstance(role, tuple) else role["description"]
 
         # Get phrases with their mapping decisions
         phrase_rows_data = conn.execute("""
@@ -368,12 +389,19 @@ def _build_role_detail_cards(conn: sqlite3.Connection) -> str:
                     <td class="rationale">{rationale_display}</td>
                 </tr>"""
 
+        description_block = (
+            f'<div class="role-description">{description}</div>'
+            if description
+            else ""
+        )
+
         cards += ROLE_CARD_TEMPLATE.format(
             company=company or "Unknown",
             title=title or "Unknown",
             mapped_count=mapped_count,
             total_count=total_count,
             source_file=source_file,
+            description_block=description_block,
             phrase_rows=phrase_rows or "<tr><td colspan='7'>No phrases extracted</td></tr>",
         )
 
