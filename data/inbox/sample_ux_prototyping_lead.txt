@@ -1,0 +1,32 @@
+Senior UX Prototyping Lead
+
+Company: Sony Interactive Entertainment
+Location: Tokyo, Japan
+
+About the Role:
+We are looking for a Senior UX Prototyping Lead to join our R&D team working on next-generation interactive experiences. You will bridge design, engineering, and product to bring early-stage concepts to life through functional prototypes.
+
+Responsibilities:
+- Lead UX prototyping for next-generation interactive products
+- Collaborate cross-functionally with engineering, design, and product teams
+- Build and evaluate interactive prototypes using modern tools and game engines
+- Conduct user research and usability testing on prototypes
+- Translate abstract concepts into concrete, testable specifications
+- Present findings and recommendations to executive stakeholders
+- Mentor junior designers and prototypers
+
+Must have:
+- 7+ years experience in UX design or interaction design
+- Proficiency in Figma and prototyping tools
+- Strong understanding of interaction design principles
+- Experience with user research methodologies
+- Demonstrated ability to lead cross-functional projects
+- Excellent written and verbal communication skills
+
+Nice to have:
+- Experience with Unity or Unreal Engine for prototyping
+- Knowledge of spatial UI / XR / AR / VR interfaces
+- Japanese language ability (JLPT N2+)
+- Experience with AI-assisted design workflows
+- Background in creative technology or digital art
+- Experience with performance profiling and optimization

@@ -26,11 +26,10 @@ def _get_mapping_decisions(
     Returns list of decision dicts.
     """
     from career_rnd.atoms import get_all_atoms
-    from career_rnd.embeddings import compute_embedding, cosine_similarity
+    from career_rnd.embeddings import compute_embeddings_batch, cosine_similarity
 
     atoms = get_all_atoms(conn)
     if not atoms:
-        # No atoms in DB — everything is NEW
         return [
             {
                 "phrase": p["phrase"],
@@ -42,26 +41,31 @@ def _get_mapping_decisions(
             for p in phrases
         ]
 
-    # Build atom text representations for embedding comparison
-    atom_texts = {}
+    # Build atom text representations and batch-embed them
+    atom_texts = []
     for atom in atoms:
-        # Combine name + definition for richer embedding
-        atom_texts[atom["atom_id"]] = f"{atom['name']}: {atom['definition']}"
+        atom_texts.append(f"{atom['name']}: {atom['definition']}")
+
+    print(f"  Computing embeddings for {len(atoms)} atoms + {len(phrases)} phrases...")
+    atom_embeddings = compute_embeddings_batch(atom_texts)
+
+    # Batch-embed all phrases too
+    phrase_texts = [p["phrase"] for p in phrases]
+    phrase_embeddings = compute_embeddings_batch(phrase_texts)
 
     decisions = []
-    for phrase_data in phrases:
+    for i, phrase_data in enumerate(phrases):
         phrase = phrase_data["phrase"]
 
         try:
-            phrase_emb = compute_embedding(phrase)
+            phrase_emb = phrase_embeddings[i]
 
             # Compare to all atoms
             best_match = None
             best_sim = -1.0
 
-            for atom in atoms:
-                atom_emb = compute_embedding(atom_texts[atom["atom_id"]])
-                sim = cosine_similarity(phrase_emb, atom_emb)
+            for j, atom in enumerate(atoms):
+                sim = cosine_similarity(phrase_emb, atom_embeddings[j])
                 if sim > best_sim:
                     best_sim = sim
                     best_match = atom
@@ -75,7 +79,7 @@ def _get_mapping_decisions(
                     "rationale": f"High similarity ({best_sim:.3f}) to '{best_match['name']}'",
                 })
             elif best_sim >= LOW_THRESHOLD:
-                # Send to LLM judge
+                # Send to LLM judge for borderline cases
                 decision = _llm_judge(phrase, best_match, best_sim, atoms[:5])
                 decisions.append(decision)
             else:
@@ -94,6 +98,11 @@ def _get_mapping_decisions(
                 "confidence": 0.0,
                 "rationale": f"Error during matching: {e}",
             })
+
+    print(f"  Decisions: {len([d for d in decisions if d['decision']=='SAME'])} SAME, "
+          f"{len([d for d in decisions if d['decision']=='CHILD'])} CHILD, "
+          f"{len([d for d in decisions if d['decision']=='NEW'])} NEW, "
+          f"{len([d for d in decisions if d['decision']=='AMBIGUOUS'])} AMBIGUOUS")
 
     return decisions
 
@@ -154,27 +163,44 @@ def map_phrases_to_atoms(
 
     now = datetime.now(timezone.utc).isoformat()
     for decision in decisions:
-        if decision.get("atom_id"):
-            # Find or create the phrase_id
-            phrase_text = decision["phrase"]
-            phrase_id = f"phr_{hashlib.sha256(f'{role_id}:{phrase_text}'.encode()).hexdigest()[:16]}"
-            atom_id = decision["atom_id"]
-            mapping_id = f"map_{hashlib.sha256(f'{phrase_id}:{atom_id}'.encode()).hexdigest()[:16]}"
+        atom_id = decision.get("atom_id")
+        if not atom_id:
+            continue
 
-            conn.execute(
-                """INSERT OR IGNORE INTO mappings
-                   (mapping_id, phrase_id, atom_id, decision, confidence, rationale, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    mapping_id,
-                    phrase_id,
-                    decision["atom_id"],
-                    decision["decision"],
-                    decision.get("confidence", 0.0),
-                    decision.get("rationale", ""),
-                    now,
-                ),
-            )
+        # Validate atom exists in DB
+        atom_exists = conn.execute(
+            "SELECT 1 FROM atoms WHERE atom_id=?", (atom_id,)
+        ).fetchone()
+        if not atom_exists:
+            continue
+
+        # Look up actual phrase_id from DB by matching phrase text + role
+        phrase_text = decision["phrase"]
+        row = conn.execute(
+            "SELECT phrase_id FROM phrases WHERE role_id=? AND phrase=?",
+            (role_id, phrase_text),
+        ).fetchone()
+
+        if not row:
+            continue
+
+        phrase_id = row[0] if isinstance(row, tuple) else row["phrase_id"]
+        mapping_id = f"map_{hashlib.sha256(f'{phrase_id}:{atom_id}'.encode()).hexdigest()[:16]}"
+
+        conn.execute(
+            """INSERT OR IGNORE INTO mappings
+               (mapping_id, phrase_id, atom_id, decision, confidence, rationale, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                mapping_id,
+                phrase_id,
+                atom_id,
+                decision["decision"],
+                decision.get("confidence", 0.0),
+                decision.get("rationale", ""),
+                now,
+            ),
+        )
 
     conn.commit()
 
